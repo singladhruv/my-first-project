@@ -23,10 +23,11 @@ connectToDB();
 
 // middlewares
 const corsConfig = {
-  origin: "https://ecommerce-dhruv.netlify.app/", // specify your front-end URL
+  origin: ["http://localhost:3000", "https://ecommerce-dhruv.netlify.app"],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
 };
+
 server.use(cors(corsConfig));
 server.use(express.json());
 server.use(cookieParser());
