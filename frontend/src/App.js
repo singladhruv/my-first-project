@@ -1,58 +1,90 @@
-import React from 'react';
-import './App.css';
-
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Home from './pages/home';
-import Cart from './pages/cart';
-import Profile from './pages/profile';
-import Login from './pages/login';
-import SignUp from './pages/sign-up';
+import {BrowserRouter as Router,Routes,Route, Navigate} from  'react-router-dom'
+import { LoginPage, SignupPage, ForgotPasswordPage, ResetPasswordPage, HomePage, ProductDetailsPage, CartPage, UserProfilePage, CheckoutPage, OrderSuccessPage, UserOrdersPage, ProductUpdatePage, AddProductPage, AdminOrdersPage, WishlistPage, OtpVerificationPage} from './pages';
 import { useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { fetchProducts } from './features/product/productActions';
-import { getUserDetails } from './features/auth/authActions';
-import Orders from './pages/order';
-import Checkout from './pages/checkout';
-import { getOrders } from './features/order/orderActions';
-
-import Layout from './pages/layout';
+import { useDispatch, useSelector } from 'react-redux';
+import { checkAuthAsync, selectIsAuthChecked, selectLoggedInUser } from './features/auth/AuthSlice';
+import {Protected} from './features/auth/components/Protected'
+import { Logout } from './features/auth/components/Logout';
+import { fetchLoggedInUserByIdAsync } from './features/user/UserSlice';
+import { fetchAllBrandsAsync } from './features/brands/BrandSlice';
+import { fetchAllCategoriesAsync } from './features/categories/CategoriesSlice';
+import { fetchCartByUserIdAsync } from './features/cart/CartSlice';
+import {fetchAddressByUserIdAsync} from './features/address/AddressSlice'
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import {fetchWishlistByUserIdAsync} from './features/wishlist/WishlistSlice'
+import { NotFoundPage } from './pages/NotFoundPage';
 
 function App() {
-  const user = useSelector(state => state.auth);
-  const dispatch = useDispatch();
+  const dispatch=useDispatch()
+  const isAuthChecked=useSelector(selectIsAuthChecked)
+  const loggedInUser=useSelector(selectLoggedInUser)
 
-  let { userToken } = user;
-  const userId = user?.userInfo?.id;
+  useEffect(()=>{
+    dispatch(checkAuthAsync())
+  },[dispatch])
 
-  useEffect(() => {
-    if (userToken) {
-      dispatch(getUserDetails());
+  useEffect(()=>{
+    /* when a user is logged in then this dispatches an action to get all the details of loggedInUser, 
+    as while login and signup only the bare-minimum information is sent by the server */
+    if(loggedInUser?.isVerified){
+      dispatch(fetchLoggedInUserByIdAsync(loggedInUser?._id))
+      dispatch(fetchAllBrandsAsync())
+      dispatch(fetchAllCategoriesAsync())
+
+      if(!loggedInUser.isAdmin){
+        dispatch(fetchCartByUserIdAsync(loggedInUser?._id))
+        dispatch(fetchAddressByUserIdAsync(loggedInUser?._id))
+        dispatch(fetchWishlistByUserIdAsync(loggedInUser?._id))
+      }
     }
-    if (userId) {
-      dispatch(getOrders(userId));
-    }
-  }, [userToken, userId, dispatch]);
-
-  useEffect(() => {
-    dispatch(fetchProducts());
-  }, [dispatch]);
+  },[loggedInUser])
 
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/create" element={<SignUp />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/orders" element={<Orders />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <Router>
+
+      {isAuthChecked && 
+
+      <Routes>
+
+        {/* public routes */}
+        <Route exact path='/signup' element={<SignupPage/>}/>
+        <Route exact path='/login' element={<LoginPage/>}/>
+        <Route exact path='/verify-otp' element={<OtpVerificationPage/>}/>
+        <Route exact path='/forgot-password' element={<ForgotPasswordPage/>}/>
+        <Route exact path='/reset-password/:userId/:passwordResetToken' element={<ResetPasswordPage/>}/>
+
+        {
+          loggedInUser?.isAdmin?(
+            // admin routes
+            <>
+            <Route exact path='/admin/dashboard' element={<Protected><AdminDashboardPage/></Protected>}/>
+            <Route exact path='/admin/product-update/:id' element={<Protected><ProductUpdatePage/></Protected>}/>
+            <Route exact path='/admin/add-product' element={<Protected><AddProductPage/></Protected>}/>
+            <Route exact path='/admin/orders' element={<Protected><AdminOrdersPage/></Protected>}/>
+            <Route exact path='*' element={<Navigate to={'/admin/dashboard'}/>}/>
+            </>
+          ):(
+            // user routes
+            <>
+            <Route exact path='/' element={<Protected><HomePage/></Protected>}/>
+            <Route exact path='/cart' element={<Protected><CartPage/></Protected>}/>
+            <Route exact path='/profile' element={<Protected><UserProfilePage/></Protected>}/>
+            <Route exact path='/checkout' element={<Protected><CheckoutPage/></Protected>}/>
+            <Route exact path='/order-success/:id' element={<Protected><OrderSuccessPage/></Protected>}/>
+            <Route exact path='/orders' element={<Protected><UserOrdersPage/></Protected>}/>
+            <Route exact path='/wishlist' element={<Protected><WishlistPage/></Protected>}/>
+            <Route exact path='*' element={<NotFoundPage/>}/>
+            </>
+          )
+        }
+
+        {/* common routes */}
+        <Route exact path='/logout' element={<Protected><Logout/></Protected>}/>
+        <Route exact path='/product-details/:id' element={<Protected><ProductDetailsPage/></Protected>}/>
+
+      </Routes>
+      }
+    </Router>
   );
 }
 
